@@ -60,28 +60,46 @@ async function connect() {
     Log.belongsTo(User);
 
     (async () => {
+      // sincronizar los modelos definidos en la aplicación con la base de datos, 
+      // lo que significa que se crearán las tablas correspondientes y se actualizarán si es necesario. 
+      // El parámetro opcional "{ force: true }" indica que se deben eliminar las tablas existentes y recrearlas desde cero.
       await sequelize.sync({ force: true });
       //crear instancia de modelo, guardar y actualizar valor
       try {
-        const Usr = User.build({
+        const usr = User.build({
           name: "Ana",
           surname: "Castillo",
           email: "ana@gmail.com",
         });
         //create.
-        await Usr.save();
-        Usr.name = "Juan";
+        await usr.save();
+        usr.name = "Juan";
         //update.
-        await Usr.save();
+        await usr.save();
 
-        const Usr2 = await User.create({
+        const usr2 = await User.create({
           name: "Pedro",
           surname: "Perez",
           email: "pedro@gmail.com",
         });
 
-        await Log.create({ log: "login 1", userId: Usr2.id });
-        await Log.create({ log: "login 2", userId: Usr2.id });
+        await Log.create({ log: "login 1", userId: usr2.id });
+        await Log.create({ log: "login 2", userId: usr2.id });
+        
+        //transacciones
+        sequelize.transaction(async (t) => {
+          const usr3 = await User.create({
+            nombre: 'Juan',
+            email: 'juan@example.com',
+            contraseña: '123456'
+          }, { transaction: t });
+
+          await usr3.update({ contraseña: 'nuevacontraseña' }, { transaction: t });
+        }).then(() => {
+          console.log('Transaction completed!');
+        }).catch(error => {
+          console.log('Transaction error:', error);
+        });
 
         //consultas (queries)
         // https://sequelize.org/docs/v6/core-concepts/model-querying-finders/
@@ -92,7 +110,15 @@ async function connect() {
           console.log("logs =>", log.toJSON());
         });
 
-        const log = await Log.findOne({ include: User });
+        const log = await Log.findOne({ 
+          where: {
+            id: 1
+          },
+          include: {
+            model: User,
+            attributes: ['email']
+          }          
+        });
         console.log("log =>", log.toJSON());
       } catch (e) {
         console.log("Error =>", e.message);
